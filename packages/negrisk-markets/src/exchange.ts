@@ -4,7 +4,7 @@ import {
   OrdersMatched,
   TokenRegistered,
 } from "../generated/NegRiskExchangeV1/Exchange";
-import { NegRiskMarket, Trade, Condition, MarketDailySnapshot, GlobalDailySnapshot } from "../generated/schema";
+import { NegRiskMarket, Trade, Condition, MarketDailySnapshot, GlobalDailySnapshot, TokenToMarket } from "../generated/schema";
 import {
   ZERO_BI,
   ONE_BI,
@@ -35,6 +35,15 @@ export function handleTokenRegistered(event: TokenRegistered): void {
     market.createdAt = event.block.timestamp;
     market.createdTx = event.transaction.hash;
     market.save();
+
+    // Create token→market lookups for both token0 and token1
+    let lookup0 = new TokenToMarket(changetype<Bytes>(Bytes.fromBigInt(event.params.token0)));
+    lookup0.market = conditionId;
+    lookup0.save();
+
+    let lookup1 = new TokenToMarket(changetype<Bytes>(Bytes.fromBigInt(event.params.token1)));
+    lookup1.market = conditionId;
+    lookup1.save();
 
     let condition = Condition.load(conditionId);
     if (condition != null) {
@@ -92,7 +101,10 @@ export function handleOrderFilled(event: OrderFilled): void {
   let outcomeTokenId = tradeType == "BUY"
     ? event.params.takerAssetId
     : event.params.makerAssetId;
-  trade.market = changetype<Bytes>(Bytes.fromBigInt(outcomeTokenId));
+  let tokenKey = changetype<Bytes>(Bytes.fromBigInt(outcomeTokenId));
+  let lookup = TokenToMarket.load(tokenKey);
+  let marketId = lookup ? lookup.market : tokenKey;
+  trade.market = marketId;
   trade.save();
 
   // Update user stats
@@ -109,7 +121,7 @@ export function handleOrderFilled(event: OrderFilled): void {
   taker.save();
 
   // Update market stats
-  let market = NegRiskMarket.load(changetype<Bytes>(Bytes.fromBigInt(outcomeTokenId)));
+  let market = NegRiskMarket.load(marketId);
   if (market != null) {
     market.tradesCount = market.tradesCount.plus(ONE_BI);
     market.volumeUSD = market.volumeUSD.plus(amountUSD);

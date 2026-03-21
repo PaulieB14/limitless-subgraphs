@@ -166,6 +166,13 @@ type GlobalDailySnapshot @entity {
   totalRedemptions: BigInt!
 }
 
+# --- Token Lookup (maps token0/token1 → NegRiskMarket) ---
+
+type TokenToMarket @entity {
+  id: Bytes! # Bytes.fromBigInt(tokenId)
+  market: NegRiskMarket!
+}
+
 # --- Global Stats (Singleton) ---
 
 type GlobalStats @entity {

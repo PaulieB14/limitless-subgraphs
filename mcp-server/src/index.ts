@@ -54,7 +54,7 @@ server.registerTool(
     try {
       const { simple, negrisk } = await queryBoth(
         `{ globalStats(id: "0x73696d706c65") { totalMarkets resolvedMarkets totalTradesCount totalVolumeUSD totalFeesUSD totalUsers totalSplits totalMerges totalRedemptions } _meta { block { number } hasIndexingErrors } }`,
-        `{ globalStats(id: "0x6e656772697368") { totalMarkets resolvedMarkets totalTradesCount totalVolumeUSD totalFeesUSD totalUsers totalSplits totalMerges totalRedemptions } _meta { block { number } hasIndexingErrors } }`
+        `{ globalStats(id: "0x6e65677269736b") { totalMarkets resolvedMarkets totalTradesCount totalVolumeUSD totalFeesUSD totalUsers totalSplits totalMerges totalRedemptions } _meta { block { number } hasIndexingErrors } }`
       );
 
       const s = simple.globalStats || {};
@@ -663,7 +663,7 @@ server.registerTool(
     try {
       const { simple, negrisk } = await queryBoth(
         `{ globalStats(id: "0x73696d706c65") { totalMarkets resolvedMarkets totalTradesCount totalVolumeUSD totalFeesUSD totalUsers totalSplits totalMerges totalRedemptions } }`,
-        `{ globalStats(id: "0x6e656772697368") { totalMarkets resolvedMarkets totalTradesCount totalVolumeUSD totalFeesUSD totalUsers totalSplits totalMerges totalRedemptions } }`
+        `{ globalStats(id: "0x6e65677269736b") { totalMarkets resolvedMarkets totalTradesCount totalVolumeUSD totalFeesUSD totalUsers totalSplits totalMerges totalRedemptions } }`
       );
 
       const s = simple.globalStats || {};
