@@ -1,7 +1,7 @@
 export const SIMPLE_ENDPOINT =
-  "https://api.studio.thegraph.com/query/1717345/limitless-1/v0.0.2";
+  "https://api.studio.thegraph.com/query/1717345/limitless-simple-markets/version/latest";
 
 export const NEGRISK_ENDPOINT =
-  "https://api.studio.thegraph.com/query/1717345/limitless-2/v0.0.3";
+  "https://api.studio.thegraph.com/query/1717345/limitless-negrisk-markets/version/latest";
 
 export const LIMITLESS_API_BASE = "https://api.limitless.exchange";
