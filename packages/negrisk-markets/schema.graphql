@@ -1,0 +1,182 @@
+# =============================================
+# Limitless NegRisk Markets Subgraph Schema
+# Indexes NegRisk Exchange (v1/v2/v3) + CTF on Base
+#
+# Best Practices Applied:
+# 1. Immutable entities for event data (48% faster indexing)
+# 2. Bytes as IDs (28% faster queries)
+# 3. @derivedFrom for reverse lookups (no extra storage)
+# 4. No eth_calls in mappings (pure event-driven)
+# 5. Pruning enabled via indexerHints
+# 6. concatI32() for ID generation (faster than string concat)
+# 7. Grafting-ready (specVersion 1.3.0)
+# 8. BigInt sort fields on Bytes-ID entities
+# =============================================
+
+# --- Core Entities ---
+
+type Condition @entity {
+  id: Bytes!
+  oracle: Bytes!
+  questionId: Bytes!
+  outcomeSlotCount: Int!
+  resolved: Boolean!
+  payoutNumerators: [BigInt!]
+  market: NegRiskMarket
+  createdAt: BigInt!
+  createdTx: Bytes!
+  resolvedAt: BigInt
+  resolvedTx: Bytes
+}
+
+type NegRiskMarket @entity {
+  id: Bytes!
+  condition: Condition!
+  token0: BigInt!
+  token1: BigInt!
+  venue: String!
+  tradesCount: BigInt!
+  buysCount: BigInt!
+  sellsCount: BigInt!
+  volumeUSD: BigDecimal!
+  buyVolumeUSD: BigDecimal!
+  sellVolumeUSD: BigDecimal!
+  feesUSD: BigDecimal!
+  createdAt: BigInt!
+  createdTx: Bytes!
+  trades: [Trade!]! @derivedFrom(field: "market")
+  dailySnapshots: [MarketDailySnapshot!]! @derivedFrom(field: "market")
+}
+
+# --- Trading ---
+
+enum TradeType {
+  BUY
+  SELL
+}
+
+type Trade @entity(immutable: true) {
+  id: Bytes!
+  market: NegRiskMarket!
+  orderHash: Bytes!
+  maker: User!
+  taker: User!
+  type: TradeType!
+  makerAssetId: BigInt!
+  takerAssetId: BigInt!
+  makerAmountFilled: BigInt!
+  takerAmountFilled: BigInt!
+  amountUSD: BigDecimal!
+  fee: BigInt!
+  feeUSD: BigDecimal!
+  price: BigDecimal!
+  venue: String!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+# --- Positions ---
+
+type UserPosition @entity {
+  id: Bytes!
+  user: User!
+  tokenId: BigInt!
+  condition: Condition
+  balance: BigInt!
+  netCostUSD: BigDecimal!
+  realizedPnlUSD: BigDecimal!
+  lastUpdated: BigInt!
+}
+
+# --- Splits, Merges, Redemptions (Immutable) ---
+
+type Split @entity(immutable: true) {
+  id: Bytes!
+  stakeholder: User!
+  conditionId: Bytes!
+  collateralToken: Bytes!
+  amount: BigInt!
+  amountUSD: BigDecimal!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+type Merge @entity(immutable: true) {
+  id: Bytes!
+  stakeholder: User!
+  conditionId: Bytes!
+  collateralToken: Bytes!
+  amount: BigInt!
+  amountUSD: BigDecimal!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+type Redemption @entity(immutable: true) {
+  id: Bytes!
+  redeemer: User!
+  conditionId: Bytes!
+  collateralToken: Bytes!
+  payout: BigInt!
+  payoutUSD: BigDecimal!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+# --- Users ---
+
+type User @entity {
+  id: Bytes!
+  tradesCount: BigInt!
+  totalVolumeUSD: BigDecimal!
+  totalFeesUSD: BigDecimal!
+  realizedPnlUSD: BigDecimal!
+  firstTradeAt: BigInt
+  lastTradeAt: BigInt
+  positions: [UserPosition!]! @derivedFrom(field: "user")
+  splits: [Split!]! @derivedFrom(field: "stakeholder")
+  merges: [Merge!]! @derivedFrom(field: "stakeholder")
+  redemptions: [Redemption!]! @derivedFrom(field: "redeemer")
+}
+
+# --- Time Series ---
+
+type MarketDailySnapshot @entity {
+  id: Bytes!
+  market: NegRiskMarket!
+  dayId: Int!
+  date: BigInt!
+  tradesCount: BigInt!
+  volumeUSD: BigDecimal!
+  buyVolumeUSD: BigDecimal!
+  sellVolumeUSD: BigDecimal!
+  feesUSD: BigDecimal!
+}
+
+type GlobalDailySnapshot @entity {
+  id: Bytes!
+  dayId: Int!
+  date: BigInt!
+  totalTradesCount: BigInt!
+  totalVolumeUSD: BigDecimal!
+  totalFeesUSD: BigDecimal!
+  totalSplits: BigInt!
+  totalMerges: BigInt!
+  totalRedemptions: BigInt!
+}
+
+# --- Global Stats (Singleton) ---
+
+type GlobalStats @entity {
+  id: Bytes!
+  totalMarkets: Int!
+  resolvedMarkets: Int!
+  totalTradesCount: BigInt!
+  totalVolumeUSD: BigDecimal!
+  totalFeesUSD: BigDecimal!
+  totalUsers: Int!
+  totalSplits: BigInt!
+  totalMerges: BigInt!
+  totalRedemptions: BigInt!
+}

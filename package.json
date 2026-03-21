@@ -1,0 +1,22 @@
+{
+  "name": "limitless-subgraphs",
+  "version": "1.0.0",
+  "description": "Subgraphs for Limitless prediction market on Base",
+  "private": true,
+  "scripts": {
+    "codegen:simple": "cd packages/simple-markets && graph codegen",
+    "codegen:negrisk": "cd packages/negrisk-markets && graph codegen",
+    "codegen": "npm run codegen:simple && npm run codegen:negrisk",
+    "build:simple": "cd packages/simple-markets && graph codegen && graph build",
+    "build:negrisk": "cd packages/negrisk-markets && graph codegen && graph build",
+    "build": "npm run build:simple && npm run build:negrisk",
+    "deploy:simple": "cd packages/simple-markets && graph deploy --node https://api.studio.thegraph.com/deploy/ limitless-simple-markets",
+    "deploy:negrisk": "cd packages/negrisk-markets && graph deploy --node https://api.studio.thegraph.com/deploy/ limitless-negrisk-markets",
+    "create:simple": "cd packages/simple-markets && graph create --node https://api.studio.thegraph.com/deploy/ limitless-simple-markets",
+    "create:negrisk": "cd packages/negrisk-markets && graph create --node https://api.studio.thegraph.com/deploy/ limitless-negrisk-markets"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.80.0",
+    "@graphprotocol/graph-ts": "^0.35.0"
+  }
+}

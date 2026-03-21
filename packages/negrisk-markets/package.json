@@ -1,0 +1,14 @@
+{
+  "name": "limitless-negrisk-markets",
+  "version": "1.0.0",
+  "description": "Limitless NegRisk Markets subgraph — Adapter + Exchange v1/v2/v3 on Base",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph codegen && graph build",
+    "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ limitless-2"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.80.0",
+    "@graphprotocol/graph-ts": "^0.35.0"
+  }
+}
