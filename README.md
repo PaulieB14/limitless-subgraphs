@@ -12,6 +12,12 @@ The [Limitless REST API](https://docs.limitless.exchange/api-reference/introduct
 
 Subgraphs solve all of this. They index every on-chain event into a queryable GraphQL API with no rate limits, full historical data, and flexible aggregation. The MCP server combines both — subgraphs for the heavy analytics, REST API for market names and metadata.
 
+### Why market names aren't in the subgraphs
+
+Market titles and descriptions are stored off-chain in the Limitless database — they are not emitted in any on-chain event. Unlike Polymarket, which uses UMA's `QuestionInitialized` event to embed question text in `ancillaryData` on-chain, Limitless uses a GnosisSafe multisig as the oracle address. The multisig calls `prepareCondition` directly on the CTF contract with no accompanying event that carries the question text. The `questionId` in the CTF's `ConditionPreparation` event is a bytes32 hash, not readable text.
+
+This means there is no on-chain source a subgraph can index for market names. The MCP server bridges this gap by joining subgraph data (via `conditionId`) with the Limitless REST API for titles and metadata.
+
 ## Subgraphs
 
 Two subgraphs indexing different exchange venues on the same CTF (Conditional Tokens Framework):
