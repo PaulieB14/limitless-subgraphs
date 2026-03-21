@@ -6,10 +6,10 @@ Subgraphs and MCP server for [Limitless Exchange](https://limitless.exchange) pr
 
 Two subgraphs indexing different exchange venues on the same CTF (Conditional Tokens Framework):
 
-| Subgraph | Studio Name | What it indexes |
-|---|---|---|
-| `simple-markets` | `limitless-simple-markets` | Binary Yes/No markets — CTF Exchange v1/v2/v3 |
-| `negrisk-markets` | `limitless-negrisk-markets` | Multi-outcome category markets — NegRisk Exchange v1/v2/v3 |
+| Subgraph | What it indexes |
+|---|---|
+| `limitless-simple-markets` | Binary Yes/No markets — CTF Exchange v1/v2/v3 |
+| `limitless-negrisk-markets` | Multi-outcome category markets — NegRisk Exchange v1/v2/v3 |
 
 Both share the same CTF contract (`0xC9c9...`) for conditions, positions, splits, merges, and redemptions. Each indexes its own set of exchange contracts for markets and trades.
 
@@ -23,16 +23,6 @@ Both share the same CTF contract (`0xC9c9...`) for conditions, positions, splits
 - **User** — aggregated trader stats
 - **MarketDailySnapshot / GlobalDailySnapshot** — daily time series
 - **GlobalStats** — protocol-wide singleton
-
-### Best Practices Applied
-
-1. Immutable entities for event data (faster indexing)
-2. `Bytes` as IDs (faster queries)
-3. `concatI32()` / `concat()` for ID generation
-4. `@derivedFrom` for reverse lookups (no extra storage)
-5. No `eth_calls` in mappings (pure event-driven)
-6. Pruning enabled via `indexerHints`
-7. Correct `startBlock` per contract (no wasted indexing)
 
 ### Contracts
 
@@ -51,29 +41,6 @@ Both share the same CTF contract (`0xC9c9...`) for conditions, positions, splits
 | NegRisk Exchange V1 | `0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6` | 28,018,020 |
 | NegRisk Exchange V2 | `0x46e607D3f4a8494B0aB9b304d1463e2F4848891d` | 39,508,390 |
 | NegRisk Exchange V3 | `0xe3E00BA3a9888d1DE4834269f62ac008b4BB5C47` | 39,598,827 |
-
-### Build & Deploy
-
-```bash
-# Simple markets
-cd packages/simple-markets
-npm install
-npx graph codegen && npx graph build
-npx graph deploy limitless-simple-markets --product subgraph-studio --version-label v0.0.2
-
-# NegRisk markets
-cd packages/negrisk-markets
-npm install
-npx graph codegen && npx graph build
-npx graph deploy limitless-negrisk-markets --product subgraph-studio --version-label v0.0.3
-```
-
-### Query Endpoints
-
-```
-Simple:  https://api.studio.thegraph.com/query/1717345/limitless-simple-markets/version/latest
-NegRisk: https://api.studio.thegraph.com/query/1717345/limitless-negrisk-markets/version/latest
-```
 
 ### Example Queries
 
@@ -149,6 +116,7 @@ npm run build
       "command": "node",
       "args": ["/path/to/limitless-subgraphs/mcp-server/build/index.js"],
       "env": {
+        "GRAPH_API_KEY": "your_graph_api_key",
         "LIMITLESS_API_KEY": "lmts_your_key_here"
       }
     }
@@ -156,4 +124,5 @@ npm run build
 }
 ```
 
-The API key is optional — market browsing and search work without it. Add one for authenticated endpoints.
+- **`GRAPH_API_KEY`** — required. Get one at [thegraph.com/studio/apikeys](https://thegraph.com/studio/apikeys/)
+- **`LIMITLESS_API_KEY`** — optional. Enables authenticated Limitless API endpoints. Generate at limitless.exchange → profile → Api keys
