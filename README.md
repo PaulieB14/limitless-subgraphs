@@ -2,6 +2,16 @@
 
 Subgraphs and MCP server for [Limitless Exchange](https://limitless.exchange) prediction markets on Base.
 
+## Why Subgraphs?
+
+The [Limitless REST API](https://docs.limitless.exchange/api-reference/introduction) is useful for market metadata (titles, descriptions, categories) but has significant limitations for analytics:
+
+- **Rate limited** — max 2 concurrent requests, 300ms minimum delay between calls, 429s on bursts
+- **No historical aggregation** — no way to query total protocol volume, trade counts over time, or cross-market analytics
+- **No on-chain depth** — the API doesn't expose individual trade fills, position balances, splits/merges/redemptions, or resolution payouts
+
+Subgraphs solve all of this. They index every on-chain event into a queryable GraphQL API with no rate limits, full historical data, and flexible aggregation. The MCP server combines both — subgraphs for the heavy analytics, REST API for market names and metadata.
+
 ## Subgraphs
 
 Two subgraphs indexing different exchange venues on the same CTF (Conditional Tokens Framework):
@@ -74,7 +84,7 @@ Both share the same CTF contract (`0xC9c9...`) for conditions, positions, splits
 
 ## MCP Server
 
-An MCP server that combines both subgraphs with the [Limitless REST API](https://api.limitless.exchange) for market names and metadata. Every tool queries the subgraphs for on-chain data.
+An MCP server that combines both subgraphs with the [Limitless REST API](https://docs.limitless.exchange/api-reference/introduction) for market names and metadata. Every tool queries the subgraphs for on-chain data.
 
 ### Tools (18)
 
@@ -124,5 +134,9 @@ npm run build
 }
 ```
 
-- **`GRAPH_API_KEY`** — required. Get one at [thegraph.com/studio/apikeys](https://thegraph.com/studio/apikeys/)
-- **`LIMITLESS_API_KEY`** — optional. Enables authenticated Limitless API endpoints. Generate at limitless.exchange → profile → Api keys
+### API Keys
+
+- **`GRAPH_API_KEY`** (required) — needed to query the subgraphs via The Graph. Get one at [thegraph.com/studio/apikeys](https://thegraph.com/studio/apikeys/)
+- **`LIMITLESS_API_KEY`** (optional) — enables market name/metadata enrichment from the Limitless REST API. Without it, market browsing and search still work (public endpoints). Generate one at [limitless.exchange](https://limitless.exchange) → profile menu → Api keys. Key format: `lmts_...`. Pass via `X-API-Key` header. See the [Limitless API docs](https://docs.limitless.exchange/api-reference/introduction) for full details.
+
+Note: The Limitless REST API is rate limited to 2 concurrent requests with 300ms minimum delay. The subgraphs have no such limits, which is why the MCP routes all analytics queries through them and only uses the REST API for metadata.
