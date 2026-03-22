@@ -13,7 +13,7 @@ import {
   ZERO_BI,
   ONE_BI,
   ZERO_BD,
-  toUSDFromCTF,
+  toUSD,
   getOrCreateUser,
   getOrCreateGlobalStats,
 } from "./helpers";
@@ -53,7 +53,7 @@ export function handleConditionResolution(event: ConditionResolution): void {
 export function handlePositionSplit(event: PositionSplit): void {
   let id = event.transaction.hash.concatI32(event.logIndex.toI32());
   let user = getOrCreateUser(event.params.stakeholder);
-  let amountUSD = toUSDFromCTF(event.params.amount);
+  let amountUSD = toUSD(event.params.amount);
 
   let split = new Split(id);
   split.stakeholder = user.id;
@@ -90,7 +90,7 @@ export function handlePositionSplit(event: PositionSplit): void {
 export function handlePositionsMerge(event: PositionsMerge): void {
   let id = event.transaction.hash.concatI32(event.logIndex.toI32());
   let user = getOrCreateUser(event.params.stakeholder);
-  let amountUSD = toUSDFromCTF(event.params.amount);
+  let amountUSD = toUSD(event.params.amount);
 
   let merge = new Merge(id);
   merge.stakeholder = user.id;
@@ -127,7 +127,7 @@ export function handlePositionsMerge(event: PositionsMerge): void {
 export function handlePayoutRedemption(event: PayoutRedemption): void {
   let id = event.transaction.hash.concatI32(event.logIndex.toI32());
   let user = getOrCreateUser(event.params.redeemer);
-  let payoutUSD = toUSDFromCTF(event.params.payout);
+  let payoutUSD = toUSD(event.params.payout);
 
   let redemption = new Redemption(id);
   redemption.redeemer = user.id;
