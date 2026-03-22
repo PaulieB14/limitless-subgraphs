@@ -117,7 +117,12 @@ export function handleOrderFilled(event: OrderFilled): void {
   }
   maker.save();
 
+  taker.tradesCount = taker.tradesCount.plus(ONE_BI);
+  taker.totalVolumeUSD = taker.totalVolumeUSD.plus(amountUSD);
   taker.lastTradeAt = event.block.timestamp;
+  if (taker.firstTradeAt === null) {
+    taker.firstTradeAt = event.block.timestamp;
+  }
   taker.save();
 
   // Update market stats

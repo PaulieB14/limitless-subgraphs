@@ -8,7 +8,7 @@ import {
   TransferSingle,
   TransferBatch,
 } from "../generated/CTF/CTF";
-import { Condition, Split, Merge, Redemption, UserPosition } from "../generated/schema";
+import { Condition, Split, Merge, Redemption, UserPosition, TokenToMarket } from "../generated/schema";
 import {
   ZERO_BI,
   ONE_BI,
@@ -154,6 +154,15 @@ function updatePosition(
     position.balance = ZERO_BI;
     position.netCostUSD = ZERO_BD;
     position.realizedPnlUSD = ZERO_BD;
+  }
+
+  // Link position to its condition via TokenToMarket lookup
+  if (position.condition === null) {
+    let tokenKey = changetype<Bytes>(Bytes.fromBigInt(tokenId));
+    let lookup = TokenToMarket.load(tokenKey);
+    if (lookup != null) {
+      position.condition = lookup.market; // Market.id == conditionId == Condition.id
+    }
   }
 
   position.balance = position.balance.plus(delta);
