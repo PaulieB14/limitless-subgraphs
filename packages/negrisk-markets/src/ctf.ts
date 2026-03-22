@@ -1,4 +1,4 @@
-import { BigInt, Bytes, Address, ByteArray } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes, Address } from "@graphprotocol/graph-ts";
 import {
   ConditionPreparation,
   ConditionResolution,
@@ -8,12 +8,12 @@ import {
   TransferSingle,
   TransferBatch,
 } from "../generated/CTF/CTF";
-import { Condition, Split, Merge, Redemption, UserPosition, TokenToMarket } from "../generated/schema";
+import { Condition, Split, Merge, Redemption, UserPosition, TokenToMarket, GlobalDailySnapshot } from "../generated/schema";
 import {
   ZERO_BI,
   ONE_BI,
   ZERO_BD,
-  toUSD,
+  toUSDFromCTF,
   getOrCreateUser,
   getOrCreateGlobalStats,
 } from "./helpers";
@@ -42,15 +42,17 @@ export function handleConditionResolution(event: ConditionResolution): void {
   condition.resolvedTx = event.transaction.hash;
   condition.save();
 
-  let stats = getOrCreateGlobalStats();
-  stats.resolvedMarkets += 1;
-  stats.save();
+  if (condition.market !== null) {
+    let stats = getOrCreateGlobalStats();
+    stats.resolvedMarkets += 1;
+    stats.save();
+  }
 }
 
 export function handlePositionSplit(event: PositionSplit): void {
   let id = event.transaction.hash.concatI32(event.logIndex.toI32());
   let user = getOrCreateUser(event.params.stakeholder);
-  let amountUSD = toUSD(event.params.amount);
+  let amountUSD = toUSDFromCTF(event.params.amount);
 
   let split = new Split(id);
   split.stakeholder = user.id;
@@ -65,12 +67,29 @@ export function handlePositionSplit(event: PositionSplit): void {
   let stats = getOrCreateGlobalStats();
   stats.totalSplits = stats.totalSplits.plus(ONE_BI);
   stats.save();
+
+  let dayId = event.block.timestamp.toI32() / 86400;
+  let snapId = Bytes.fromI32(dayId);
+  let snap = GlobalDailySnapshot.load(snapId);
+  if (snap == null) {
+    snap = new GlobalDailySnapshot(snapId);
+    snap.dayId = dayId;
+    snap.date = BigInt.fromI32(dayId * 86400);
+    snap.totalTradesCount = ZERO_BI;
+    snap.totalVolumeUSD = ZERO_BD;
+    snap.totalFeesUSD = ZERO_BD;
+    snap.totalSplits = ZERO_BI;
+    snap.totalMerges = ZERO_BI;
+    snap.totalRedemptions = ZERO_BI;
+  }
+  snap.totalSplits = snap.totalSplits.plus(ONE_BI);
+  snap.save();
 }
 
 export function handlePositionsMerge(event: PositionsMerge): void {
   let id = event.transaction.hash.concatI32(event.logIndex.toI32());
   let user = getOrCreateUser(event.params.stakeholder);
-  let amountUSD = toUSD(event.params.amount);
+  let amountUSD = toUSDFromCTF(event.params.amount);
 
   let merge = new Merge(id);
   merge.stakeholder = user.id;
@@ -85,12 +104,29 @@ export function handlePositionsMerge(event: PositionsMerge): void {
   let stats = getOrCreateGlobalStats();
   stats.totalMerges = stats.totalMerges.plus(ONE_BI);
   stats.save();
+
+  let dayId = event.block.timestamp.toI32() / 86400;
+  let snapId = Bytes.fromI32(dayId);
+  let snap = GlobalDailySnapshot.load(snapId);
+  if (snap == null) {
+    snap = new GlobalDailySnapshot(snapId);
+    snap.dayId = dayId;
+    snap.date = BigInt.fromI32(dayId * 86400);
+    snap.totalTradesCount = ZERO_BI;
+    snap.totalVolumeUSD = ZERO_BD;
+    snap.totalFeesUSD = ZERO_BD;
+    snap.totalSplits = ZERO_BI;
+    snap.totalMerges = ZERO_BI;
+    snap.totalRedemptions = ZERO_BI;
+  }
+  snap.totalMerges = snap.totalMerges.plus(ONE_BI);
+  snap.save();
 }
 
 export function handlePayoutRedemption(event: PayoutRedemption): void {
   let id = event.transaction.hash.concatI32(event.logIndex.toI32());
   let user = getOrCreateUser(event.params.redeemer);
-  let payoutUSD = toUSD(event.params.payout);
+  let payoutUSD = toUSDFromCTF(event.params.payout);
 
   let redemption = new Redemption(id);
   redemption.redeemer = user.id;
@@ -105,6 +141,23 @@ export function handlePayoutRedemption(event: PayoutRedemption): void {
   let stats = getOrCreateGlobalStats();
   stats.totalRedemptions = stats.totalRedemptions.plus(ONE_BI);
   stats.save();
+
+  let dayId = event.block.timestamp.toI32() / 86400;
+  let snapId = Bytes.fromI32(dayId);
+  let snap = GlobalDailySnapshot.load(snapId);
+  if (snap == null) {
+    snap = new GlobalDailySnapshot(snapId);
+    snap.dayId = dayId;
+    snap.date = BigInt.fromI32(dayId * 86400);
+    snap.totalTradesCount = ZERO_BI;
+    snap.totalVolumeUSD = ZERO_BD;
+    snap.totalFeesUSD = ZERO_BD;
+    snap.totalSplits = ZERO_BI;
+    snap.totalMerges = ZERO_BI;
+    snap.totalRedemptions = ZERO_BI;
+  }
+  snap.totalRedemptions = snap.totalRedemptions.plus(ONE_BI);
+  snap.save();
 }
 
 export function handleTransferSingle(event: TransferSingle): void {

@@ -7,8 +7,14 @@ export let ZERO_BD = BigDecimal.fromString("0");
 
 export let GLOBAL_STATS_ID = Bytes.fromUTF8("negrisk");
 
+// USDC has 6 decimals — use for exchange trade/fee amounts
 export function toUSD(amount: BigInt): BigDecimal {
   return amount.toBigDecimal().div(BigDecimal.fromString("1000000"));
+}
+
+// CTF split/merge/redemption amounts are in 1e18 (outcome token denomination)
+export function toUSDFromCTF(amount: BigInt): BigDecimal {
+  return amount.toBigDecimal().div(BigDecimal.fromString("1000000000000000000"));
 }
 
 export function getVenueFromAddress(address: Address): string {
