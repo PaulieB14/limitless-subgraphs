@@ -8,13 +8,19 @@ export let ZERO_BD = BigDecimal.fromString("0");
 // Singleton ID for GlobalStats
 export let GLOBAL_STATS_ID = Bytes.fromUTF8("simple");
 
+// USDC on Base
+export let USDC_ADDRESS = Address.fromHexString("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913");
+
 // USDC has 6 decimals — use for exchange trade/fee amounts
 export function toUSD(amount: BigInt): BigDecimal {
   return amount.toBigDecimal().div(BigDecimal.fromString("1000000"));
 }
 
-// CTF split/merge/redemption amounts are in 1e18 (outcome token denomination)
-export function toUSDFromCTF(amount: BigInt): BigDecimal {
+// Collateral-aware: USDC (6 decimals) vs everything else (18 decimals)
+export function collateralToUSD(amount: BigInt, collateralToken: Address): BigDecimal {
+  if (collateralToken.equals(USDC_ADDRESS)) {
+    return amount.toBigDecimal().div(BigDecimal.fromString("1000000"));
+  }
   return amount.toBigDecimal().div(BigDecimal.fromString("1000000000000000000"));
 }
 
