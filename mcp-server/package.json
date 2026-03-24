@@ -1,6 +1,6 @@
 {
   "name": "graph-limitless-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for Limitless prediction market analytics — combines on-chain subgraph data with market metadata",
   "type": "module",
   "bin": {
@@ -13,7 +13,9 @@
     "prepublishOnly": "npm run build"
   },
   "files": [
-    "build"
+    "build",
+    "README.md",
+    "LICENSE"
   ],
   "keywords": [
     "mcp",
