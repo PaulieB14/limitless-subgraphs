@@ -1,0 +1,31 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.paulieb14/graph-limitless-mcp",
+  "description": "Query Limitless prediction market data on Base — market stats, trader analytics, positions, trades, daily snapshots, and whale tracking via The Graph's decentralized network.",
+  "title": "Limitless Prediction Markets",
+  "websiteUrl": "https://github.com/PaulieB14/limitless-subgraphs",
+  "repository": {
+    "url": "https://github.com/PaulieB14/limitless-subgraphs",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "graph-limitless-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "GRAPH_API_KEY",
+          "description": "The Graph API key — get a free one at https://thegraph.market/dashboard#api-keys",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

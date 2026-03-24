@@ -1,10 +1,10 @@
 {
-  "name": "limitless-mcp",
+  "name": "graph-limitless-mcp",
   "version": "1.0.0",
   "description": "MCP server for Limitless prediction market analytics — combines on-chain subgraph data with market metadata",
   "type": "module",
   "bin": {
-    "limitless-mcp": "build/index.js"
+    "graph-limitless-mcp": "build/index.js"
   },
   "main": "./build/index.js",
   "scripts": {

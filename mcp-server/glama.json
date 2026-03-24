@@ -1,0 +1,10 @@
+{
+  "name": "graph-limitless-mcp",
+  "description": "Query Limitless prediction market data on Base — market stats, trader analytics, positions, trades, daily snapshots, and whale tracking via The Graph's decentralized network.",
+  "category": "Finance",
+  "tags": ["prediction-markets", "blockchain", "defi", "the-graph", "base", "analytics"],
+  "author": "PaulieB14",
+  "homepage": "https://github.com/PaulieB14/limitless-subgraphs",
+  "npm": "graph-limitless-mcp",
+  "install": "GRAPH_API_KEY=your-key npx graph-limitless-mcp"
+}
