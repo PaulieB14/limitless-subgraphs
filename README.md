@@ -2,6 +2,8 @@
 
 Subgraphs and MCP server for [Limitless Exchange](https://limitless.exchange) prediction markets on Base.
 
+[![Limitless MCP server](https://glama.ai/mcp/servers/PaulieB14/limitless-subgraphs/badges/card.svg)](https://glama.ai/mcp/servers/PaulieB14/limitless-subgraphs)
+
 ## Why Subgraphs?
 
 The [Limitless REST API](https://docs.limitless.exchange/api-reference/introduction) is useful for market metadata (titles, descriptions, categories) but has significant limitations for analytics:
