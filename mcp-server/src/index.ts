@@ -1116,7 +1116,7 @@ server.registerTool(
     try {
       const addr = address.toLowerCase();
 
-      // Fetch trades (buys = cost, sells = proceeds)
+      // Fetch trades (buys = cost, sells = proceeds) — include id for dedup
       const tradesQuery = `{
         trades(
           first: 1000
@@ -1124,6 +1124,7 @@ server.registerTool(
           orderBy: timestamp
           orderDirection: desc
         ) {
+          id
           amountUSD
           type
           timestamp
@@ -1131,7 +1132,8 @@ server.registerTool(
         }
       }`;
 
-      // Fetch redemptions (payouts)
+      // Fetch redemptions (payouts) — include id for dedup
+      // Both subgraphs index the same CTF contract, so redemptions can appear in both
       const redemptionsQuery = `{
         redemptions(
           first: 1000
@@ -1139,6 +1141,7 @@ server.registerTool(
           orderBy: timestamp
           orderDirection: desc
         ) {
+          id
           payoutUSD
           timestamp
           conditionId
@@ -1153,15 +1156,31 @@ server.registerTool(
           queryNegRisk(redemptionsQuery).catch(() => ({ redemptions: [] })),
         ]);
 
-      const allTrades = [
+      // Deduplicate: trades have unique IDs per exchange, but CTF events (redemptions)
+      // are indexed by both subgraphs from the same contract. Use id to dedup.
+      const seenTradeIds = new Set<string>();
+      const allTrades: any[] = [];
+      for (const t of [
         ...(simpleTrades.trades || []).map((t: any) => ({ ...t, source: "simple" })),
         ...(negriskTrades.trades || []).map((t: any) => ({ ...t, source: "negrisk" })),
-      ];
+      ]) {
+        if (!seenTradeIds.has(t.id)) {
+          seenTradeIds.add(t.id);
+          allTrades.push(t);
+        }
+      }
 
-      const allRedemptions = [
+      const seenRedemptionIds = new Set<string>();
+      const allRedemptions: any[] = [];
+      for (const r of [
         ...(simpleRedemptions.redemptions || []).map((r: any) => ({ ...r, source: "simple" })),
         ...(negriskRedemptions.redemptions || []).map((r: any) => ({ ...r, source: "negrisk" })),
-      ];
+      ]) {
+        if (!seenRedemptionIds.has(r.id)) {
+          seenRedemptionIds.add(r.id);
+          allRedemptions.push(r);
+        }
+      }
 
       // Calculate
       let totalBuyCost = 0;
