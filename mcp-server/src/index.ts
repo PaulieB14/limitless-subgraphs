@@ -1100,6 +1100,143 @@ server.registerTool(
 );
 
 // ---------------------------------------------------------------------------
+// PnL calculator (computed at query time from trades + redemptions)
+// ---------------------------------------------------------------------------
+
+server.registerTool(
+  "get_trader_pnl",
+  {
+    description:
+      "Calculate a trader's estimated profit & loss from on-chain data. Sums buy costs, sell proceeds, and redemption payouts across both Simple and NegRisk markets. Note: this is computed at query time, not stored in the subgraph.",
+    inputSchema: {
+      address: z.string().describe("Trader wallet address (0x...)"),
+    },
+  },
+  async ({ address }) => {
+    try {
+      const addr = address.toLowerCase();
+
+      // Fetch trades (buys = cost, sells = proceeds)
+      const tradesQuery = `{
+        trades(
+          first: 1000
+          where: { taker: "${addr}" }
+          orderBy: timestamp
+          orderDirection: desc
+        ) {
+          amountUSD
+          type
+          timestamp
+          market { id }
+        }
+      }`;
+
+      // Fetch redemptions (payouts)
+      const redemptionsQuery = `{
+        redemptions(
+          first: 1000
+          where: { redeemer: "${addr}" }
+          orderBy: timestamp
+          orderDirection: desc
+        ) {
+          payoutUSD
+          timestamp
+          conditionId
+        }
+      }`;
+
+      const [simpleTrades, negriskTrades, simpleRedemptions, negriskRedemptions] =
+        await Promise.all([
+          querySimple(tradesQuery).catch(() => ({ trades: [] })),
+          queryNegRisk(tradesQuery).catch(() => ({ trades: [] })),
+          querySimple(redemptionsQuery).catch(() => ({ redemptions: [] })),
+          queryNegRisk(redemptionsQuery).catch(() => ({ redemptions: [] })),
+        ]);
+
+      const allTrades = [
+        ...(simpleTrades.trades || []).map((t: any) => ({ ...t, source: "simple" })),
+        ...(negriskTrades.trades || []).map((t: any) => ({ ...t, source: "negrisk" })),
+      ];
+
+      const allRedemptions = [
+        ...(simpleRedemptions.redemptions || []).map((r: any) => ({ ...r, source: "simple" })),
+        ...(negriskRedemptions.redemptions || []).map((r: any) => ({ ...r, source: "negrisk" })),
+      ];
+
+      // Calculate
+      let totalBuyCost = 0;
+      let totalSellProceeds = 0;
+      let buyCount = 0;
+      let sellCount = 0;
+
+      for (const t of allTrades) {
+        const usd = parseFloat(t.amountUSD || "0");
+        if (t.type === "BUY") {
+          totalBuyCost += usd;
+          buyCount++;
+        } else {
+          totalSellProceeds += usd;
+          sellCount++;
+        }
+      }
+
+      let totalRedemptions = 0;
+      for (const r of allRedemptions) {
+        totalRedemptions += parseFloat(r.payoutUSD || "0");
+      }
+
+      const realizedPnl = totalSellProceeds + totalRedemptions - totalBuyCost;
+      const roi = totalBuyCost > 0 ? (realizedPnl / totalBuyCost) * 100 : 0;
+
+      // Get market names for top redemptions
+      const conditionIds = [...new Set(allRedemptions.map((r: any) => r.conditionId).filter(Boolean))];
+      const names = await getAllCachedMarkets();
+      const nameMap = new Map(names.map((m: any) => [m.conditionId, m.title]));
+
+      const topRedemptions = allRedemptions
+        .sort((a: any, b: any) => parseFloat(b.payoutUSD) - parseFloat(a.payoutUSD))
+        .slice(0, 10)
+        .map((r: any) => ({
+          payoutUSD: parseFloat(r.payoutUSD).toFixed(2),
+          market: nameMap.get(r.conditionId) || r.conditionId,
+          source: r.source,
+        }));
+
+      return textResult({
+        address: addr,
+        summary: {
+          totalBuyCost: totalBuyCost.toFixed(2),
+          totalSellProceeds: totalSellProceeds.toFixed(2),
+          totalRedemptions: totalRedemptions.toFixed(2),
+          estimatedPnL: realizedPnl.toFixed(2),
+          roi: roi.toFixed(2) + "%",
+        },
+        tradeBreakdown: {
+          buys: buyCount,
+          sells: sellCount,
+          redemptions: allRedemptions.length,
+          totalTrades: allTrades.length,
+        },
+        marketBreakdown: {
+          simple: {
+            trades: simpleTrades.trades?.length || 0,
+            redemptions: simpleRedemptions.redemptions?.length || 0,
+          },
+          negrisk: {
+            trades: negriskTrades.trades?.length || 0,
+            redemptions: negriskRedemptions.redemptions?.length || 0,
+          },
+        },
+        topRedemptions,
+        note: "PnL is estimated from on-chain trades and redemptions. Limited to last 1000 trades per subgraph. Does not account for unrealized positions or splits/merges used as entry/exit.",
+      });
+    } catch (e) {
+      return errorResult(e);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Start server
 // ---------------------------------------------------------------------------
 async function main() {
