@@ -1110,50 +1110,57 @@ server.registerTool(
       "Calculate a trader's estimated profit & loss from on-chain data. Sums buy costs, sell proceeds, and redemption payouts across both Simple and NegRisk markets. Note: this is computed at query time, not stored in the subgraph.",
     inputSchema: {
       address: z.string().describe("Trader wallet address (0x...)"),
+      maxPages: z.number().optional().default(5).describe("Max pages per subgraph (1000 trades/page). Default 5 = up to 5000 trades. Set higher for whales."),
     },
   },
-  async ({ address }) => {
+  async ({ address, maxPages }) => {
     try {
       const addr = address.toLowerCase();
+      const pages = maxPages || 5;
 
-      // Fetch trades (buys = cost, sells = proceeds) — include id for dedup
-      const tradesQuery = `{
-        trades(
-          first: 1000
-          where: { taker: "${addr}" }
-          orderBy: timestamp
-          orderDirection: desc
-        ) {
-          id
-          amountUSD
-          type
-          timestamp
-          market { id }
+      // Paginated fetch helper — Graph Protocol limits to 1000 per query
+      // Uses id-based cursoring to fetch all records
+      async function paginatedFetch(
+        queryFn: (q: string) => Promise<any>,
+        entity: string,
+        whereClause: string,
+        fields: string,
+        maxPages: number = 10
+      ): Promise<any[]> {
+        const results: any[] = [];
+        let lastId = "";
+        for (let page = 0; page < maxPages; page++) {
+          const idFilter = lastId ? `, id_gt: "${lastId}"` : "";
+          const query = `{
+            ${entity}(
+              first: 1000
+              where: { ${whereClause}${idFilter} }
+              orderBy: id
+              orderDirection: asc
+            ) {
+              id
+              ${fields}
+            }
+          }`;
+          const data = await queryFn(query).catch(() => ({ [entity]: [] }));
+          const batch = data[entity] || [];
+          results.push(...batch);
+          if (batch.length < 1000) break; // no more pages
+          lastId = batch[batch.length - 1].id;
         }
-      }`;
+        return results;
+      }
 
-      // Fetch redemptions (payouts) — include id for dedup
-      // Both subgraphs index the same CTF contract, so redemptions can appear in both
-      const redemptionsQuery = `{
-        redemptions(
-          first: 1000
-          where: { redeemer: "${addr}" }
-          orderBy: timestamp
-          orderDirection: desc
-        ) {
-          id
-          payoutUSD
-          timestamp
-          conditionId
-        }
-      }`;
+      // Fetch all trades and redemptions with pagination (up to 10K each)
+      const tradeFields = "amountUSD type timestamp market { id }";
+      const redemptionFields = "payoutUSD timestamp conditionId";
 
       const [simpleTrades, negriskTrades, simpleRedemptions, negriskRedemptions] =
         await Promise.all([
-          querySimple(tradesQuery).catch(() => ({ trades: [] })),
-          queryNegRisk(tradesQuery).catch(() => ({ trades: [] })),
-          querySimple(redemptionsQuery).catch(() => ({ redemptions: [] })),
-          queryNegRisk(redemptionsQuery).catch(() => ({ redemptions: [] })),
+          paginatedFetch(querySimple, "trades", `taker: "${addr}"`, tradeFields, pages),
+          paginatedFetch(queryNegRisk, "trades", `taker: "${addr}"`, tradeFields, pages),
+          paginatedFetch(querySimple, "redemptions", `redeemer: "${addr}"`, redemptionFields, pages),
+          paginatedFetch(queryNegRisk, "redemptions", `redeemer: "${addr}"`, redemptionFields, pages),
         ]);
 
       // Deduplicate: trades have unique IDs per exchange, but CTF events (redemptions)
@@ -1161,8 +1168,8 @@ server.registerTool(
       const seenTradeIds = new Set<string>();
       const allTrades: any[] = [];
       for (const t of [
-        ...(simpleTrades.trades || []).map((t: any) => ({ ...t, source: "simple" })),
-        ...(negriskTrades.trades || []).map((t: any) => ({ ...t, source: "negrisk" })),
+        ...simpleTrades.map((t: any) => ({ ...t, source: "simple" })),
+        ...negriskTrades.map((t: any) => ({ ...t, source: "negrisk" })),
       ]) {
         if (!seenTradeIds.has(t.id)) {
           seenTradeIds.add(t.id);
@@ -1173,8 +1180,8 @@ server.registerTool(
       const seenRedemptionIds = new Set<string>();
       const allRedemptions: any[] = [];
       for (const r of [
-        ...(simpleRedemptions.redemptions || []).map((r: any) => ({ ...r, source: "simple" })),
-        ...(negriskRedemptions.redemptions || []).map((r: any) => ({ ...r, source: "negrisk" })),
+        ...simpleRedemptions.map((r: any) => ({ ...r, source: "simple" })),
+        ...negriskRedemptions.map((r: any) => ({ ...r, source: "negrisk" })),
       ]) {
         if (!seenRedemptionIds.has(r.id)) {
           seenRedemptionIds.add(r.id);
@@ -1208,7 +1215,6 @@ server.registerTool(
       const roi = totalBuyCost > 0 ? (realizedPnl / totalBuyCost) * 100 : 0;
 
       // Get market names for top redemptions
-      const conditionIds = [...new Set(allRedemptions.map((r: any) => r.conditionId).filter(Boolean))];
       const names = await getAllCachedMarkets();
       const nameMap = new Map(names.map((m: any) => [m.conditionId, m.title]));
 
@@ -1238,16 +1244,17 @@ server.registerTool(
         },
         marketBreakdown: {
           simple: {
-            trades: simpleTrades.trades?.length || 0,
-            redemptions: simpleRedemptions.redemptions?.length || 0,
+            trades: simpleTrades.length,
+            redemptions: simpleRedemptions.length,
           },
           negrisk: {
-            trades: negriskTrades.trades?.length || 0,
-            redemptions: negriskRedemptions.redemptions?.length || 0,
+            trades: negriskTrades.length,
+            redemptions: negriskRedemptions.length,
           },
         },
         topRedemptions,
-        note: "PnL is estimated from on-chain trades and redemptions. Limited to last 1000 trades per subgraph. Does not account for unrealized positions or splits/merges used as entry/exit.",
+        hitPageLimit: allTrades.length >= pages * 1000 * 2,
+        note: `PnL is estimated from on-chain trades and redemptions (${pages * 1000} max per subgraph, ${pages * 2 * 1000} total). Does not account for unrealized positions or splits/merges used as entry/exit.${allTrades.length >= pages * 1000 ? " ⚠️ MEGAWHALE: hit pagination limit — real PnL is likely higher. Increase maxPages for fuller picture." : ""}`,
       });
     } catch (e) {
       return errorResult(e);
