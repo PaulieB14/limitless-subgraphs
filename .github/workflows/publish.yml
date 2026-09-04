@@ -96,9 +96,13 @@ jobs:
           npx --yes clawhub@latest login --no-input --token "$CLAWHUB_TOKEN"
           # Idempotent, same reasoning as the npm step: ClawHub rejects a
           # re-publish of an existing version, which is not a failure — the
-          # version is simply already there. Detected up front so the run does
-          # not report a scary "check your token" for a benign no-op.
-          if npx --yes clawhub@latest skill info graph-limitless-mcp 2>/dev/null | grep -qF "$VERSION"; then
+          # version is simply already there.
+          #
+          # `inspect` is the command that reports it. (`skill info` does not
+          # exist; the skill subcommand only has publish/rename/merge. An
+          # earlier version of this workflow invented it, so the check silently
+          # never matched and every run attempted a doomed re-publish.)
+          if npx --yes clawhub@latest inspect graph-limitless-mcp 2>/dev/null | grep -qE "^Latest: +$VERSION\\b"; then
             echo "graph-limitless-mcp@$VERSION is already on ClawHub — nothing to do."
             echo "skipped=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -112,12 +116,24 @@ jobs:
           cp SKILL.md "$PUBLISH_DIR/SKILL.md"
           sed -i.bak "s/^version:.*/version: $VERSION/" "$PUBLISH_DIR/SKILL.md"
           rm -f "$PUBLISH_DIR/SKILL.md.bak"
-          npx --yes clawhub@latest skill publish "$PUBLISH_DIR" \
+          set +e
+          OUT=$(npx --yes clawhub@latest skill publish "$PUBLISH_DIR" \
             --slug graph-limitless-mcp \
             --name "Graph Limitless MCP" \
             --version "$VERSION" \
             --tags latest \
-            --changelog "v$VERSION — see github.com/${{ github.repository }}"
+            --changelog "v$VERSION — see github.com/${{ github.repository }}" 2>&1)
+          RC=$?
+          set -e
+          echo "$OUT"
+          # The check above should catch this, but the registry is the authority:
+          # if it says the version exists, that is a no-op, not a failure.
+          if [ $RC -ne 0 ] && echo "$OUT" | grep -qi "already exists"; then
+            echo "Registry reports $VERSION already published — treating as a no-op."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          exit $RC
 
       - name: Report results
         run: |
