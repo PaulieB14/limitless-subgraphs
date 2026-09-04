@@ -93,10 +93,18 @@ jobs:
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          echo "Publishing graph-limitless-mcp v$VERSION to ClawHub"
-          # Re-publishing an existing version is rejected; continue-on-error
-          # keeps that from failing the run, and npm remains the gate.
           npx --yes clawhub@latest login --no-input --token "$CLAWHUB_TOKEN"
+          # Idempotent, same reasoning as the npm step: ClawHub rejects a
+          # re-publish of an existing version, which is not a failure — the
+          # version is simply already there. Detected up front so the run does
+          # not report a scary "check your token" for a benign no-op.
+          if npx --yes clawhub@latest skill info graph-limitless-mcp 2>/dev/null | grep -qF "$VERSION"; then
+            echo "graph-limitless-mcp@$VERSION is already on ClawHub — nothing to do."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+          echo "Publishing graph-limitless-mcp v$VERSION to ClawHub"
           # Publish from a clean folder holding only SKILL.md: a package.json
           # with a bin field makes the CLI treat this as a code-plugin, which is
           # wrong for an MCP server (it runs outside OpenClaw, not as a plugin).
@@ -115,8 +123,12 @@ jobs:
         run: |
           echo "npm publish:     ${{ steps.npm_publish.outcome }}"
           echo "clawhub publish: ${{ steps.clawhub_publish.outcome }}"
-          if [ "${{ steps.clawhub_publish.outcome }}" != "success" ]; then
-            echo "::warning::ClawHub publish failed — check the CLAWHUB_TOKEN secret"
+          if [ "${{ steps.clawhub_publish.outputs.skipped }}" = "true" ]; then
+            echo "ClawHub: version already listed, skipped."
+          elif [ "${{ steps.clawhub_publish.outcome }}" != "success" ]; then
+            # Do not assume the token: a rejected re-publish of an existing
+            # version logs in fine and fails anyway. Read the step log.
+            echo "::warning::ClawHub publish did not succeed — see the step log. If it says 'already exists', the version is simply published; if it says login failed, check CLAWHUB_TOKEN."
           fi
           # npm is authoritative: fail the run if it did not publish, so a broken
           # token cannot go unnoticed for weeks the way it did on graph-aave-mcp.
