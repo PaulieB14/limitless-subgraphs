@@ -1,7 +1,7 @@
 ---
 name: graph-limitless-mcp
-description: "Query Limitless prediction markets on Base — live odds, trader P&L, whale tracking, market stats, and daily volume from The Graph's decentralized network."
-version: 1.0.0
+description: "Protocol-wide on-chain analytics for Limitless prediction markets on Base — trader P&L, top traders, market and daily volume history, liquidity events, and raw GraphQL, from the Limitless subgraphs on The Graph's decentralized network."
+version: 1.1.0
 homepage: https://github.com/PaulieB14/limitless-subgraphs
 metadata:
   clawdbot:
