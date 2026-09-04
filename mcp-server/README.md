@@ -12,20 +12,64 @@ Get a free API key at [thegraph.market/dashboard#api-keys](https://thegraph.mark
 
 ## Tools
 
+19 tools, all read-only.
+
+### Protocol-wide
+
 | Tool | What it does |
 |------|-------------|
-| `get_platform_stats` | Total markets, volume, trades, users across Simple + NegRisk |
-| `get_markets` | Browse markets with volume, trade counts, resolution status |
-| `search_markets` | Search by keyword or category via Limitless API |
-| `get_market_details` | Deep dive — conditions, outcomes, payouts |
-| `get_trades` | Recent trades with USD amounts, buy/sell, maker/taker |
-| `get_user_stats` | Trader profile — volume, trade count, first/last trade |
-| `get_user_trades` | Full trade history for any wallet |
-| `get_user_positions` | Current holdings with token balances |
-| `get_daily_snapshots` | Daily volume, trades, splits, merges, redemptions |
-| `get_market_daily_snapshots` | Per-market daily breakdown |
-| `get_top_traders` | Leaderboard by volume |
-| `get_whale_trades` | Large trades filtered by minimum USD amount |
+| `get_global_stats` | Get combined protocol-wide stats across both simple and negrisk markets. |
+| `get_daily_protocol_stats` | Get daily protocol stats (volume, trades, fees, splits, merges, redemptions) across both market types as a time series. |
+| `compare_market_types` | Side-by-side comparison of simple vs negrisk market performance. |
+| `get_recent_activity` | Get a unified feed of all recent on-chain activity: trades, splits, merges, and redemptions across both market types with market names. |
+| `get_liquidity_events` | Get splits, merges, and redemptions — the liquidity lifecycle events. |
+| `get_conditions` | Get conditions (markets that have been prepared on-chain) with resolution status. |
+
+### Markets
+
+| Tool | What it does |
+|------|-------------|
+| `search_markets` | Search markets by keyword or category. |
+| `get_market_analytics` | Get full analytics for a specific market by conditionId. |
+| `get_market_trades` | Get trades for a specific market. |
+| `get_market_positions` | Get top position holders for a specific market. |
+| `get_market_daily_snapshots` | Get daily volume, trades, and fees for a specific market over time. |
+| `get_market_lifecycle` | Get the complete lifecycle of a market: creation, trading stats, splits/merges, resolution status, and redemptions — all from on-chain data with metad |
+
+### Traders
+
+| Tool | What it does |
+|------|-------------|
+| `get_trader_profile` | Get a trader's profile across both simple and negrisk markets. |
+| `get_trader_trades` | Get a trader's recent trades across both market types, enriched with market names. |
+| `get_trader_positions` | Get a trader's current positions across both market types with balances and PnL. |
+| `get_trader_pnl` | Calculate a trader's estimated profit & loss from on-chain data. |
+| `get_top_traders` | Get top traders ranked by volume, trade count, or PnL. |
+
+### Escape hatches
+
+| Tool | What it does |
+|------|-------------|
+| `get_subgraph_schema` | Get the GraphQL schema for a Limitless subgraph via introspection. |
+| `query_subgraph` | Run a raw GraphQL query against a Limitless subgraph. |
+
+## How this differs from the official Limitless MCP
+
+Limitless runs its own remote MCP at `https://api.limitless.exchange/mcp`. The two do
+different jobs and are worth having side by side:
+
+| | Official Limitless MCP | This server |
+|---|---|---|
+| Source | Limitless API (authenticated) | Limitless subgraphs on The Graph |
+| Auth | OAuth sign-in to your Limitless account | a free Graph gateway key, no account |
+| Reads | live orderbooks, your positions, your orders | on-chain history for the whole protocol |
+| Writes | proposes orders for you to approve in a browser | nothing, read-only |
+| Best for | trading, and your own account | analytics across all markets and traders |
+
+Use theirs to see the book and place an order. Use this one to ask questions the API
+does not answer: protocol-wide volume over time, who the largest traders are, a given
+address's realised PnL, how simple markets compare with NegRisk, or an arbitrary
+GraphQL query against the raw subgraph.
 
 ## Data
 
