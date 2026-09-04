@@ -1,0 +1,110 @@
+name: Publish MCP to npm + ClawHub
+
+# Mirrors the working setup in PaulieB14/graph-aave-mcp. Requires two repo
+# secrets before it can do anything: NPM_TOKEN (granular, read+write on
+# graph-limitless-mcp) and CLAWHUB_TOKEN. Without them the job runs and fails
+# loudly rather than silently skipping.
+#
+# The MCP lives in mcp-server/, not the repo root, so every step runs there.
+# The root package is the subgraph workspace and is not published.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mcp-server/**'
+      - '.github/workflows/publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: mcp-server
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify the docs match the registered tools
+        # The README and SKILL.md once listed 12 tools of which 9 did not exist,
+        # while 16 real ones went undocumented — and SKILL.md is what ClawHub
+        # publishes, so the listing advertised an API that failed on first call.
+        # This makes that class of drift a build failure instead of a discovery.
+        run: |
+          node -e '
+            const fs = require("fs");
+            const src = fs.readFileSync("src/index.ts", "utf8");
+            const real = new Set([...src.matchAll(/registerTool\(\s*"([a-z0-9_]+)"/g)].map(m => m[1]));
+            let bad = false;
+            for (const f of ["README.md", "SKILL.md"]) {
+              const doc = new Set([...fs.readFileSync(f, "utf8")
+                .matchAll(/`((?:get|search|query|compare)_[a-z_]+)`/g)].map(m => m[1]));
+              const phantom = [...doc].filter(t => !real.has(t));
+              const missing = [...real].filter(t => !doc.has(t));
+              if (phantom.length) { console.error(`${f}: documents non-existent tools: ${phantom.join(", ")}`); bad = true; }
+              if (missing.length) { console.error(`${f}: does not document: ${missing.join(", ")}`); bad = true; }
+            }
+            if (bad) process.exit(1);
+            console.log(`docs match all ${real.size} registered tools`);
+          '
+
+      - name: Publish to npm
+        id: npm_publish
+        continue-on-error: true
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to ClawHub (skill / discovery listing)
+        id: clawhub_publish
+        continue-on-error: true
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Publishing graph-limitless-mcp v$VERSION to ClawHub"
+          npx --yes clawhub@latest login --no-input --token "$CLAWHUB_TOKEN"
+          # Publish from a clean folder holding only SKILL.md: a package.json
+          # with a bin field makes the CLI treat this as a code-plugin, which is
+          # wrong for an MCP server (it runs outside OpenClaw, not as a plugin).
+          PUBLISH_DIR=$(mktemp -d)
+          cp SKILL.md "$PUBLISH_DIR/SKILL.md"
+          sed -i.bak "s/^version:.*/version: $VERSION/" "$PUBLISH_DIR/SKILL.md"
+          rm -f "$PUBLISH_DIR/SKILL.md.bak"
+          npx --yes clawhub@latest skill publish "$PUBLISH_DIR" \
+            --slug graph-limitless-mcp \
+            --name "Graph Limitless MCP" \
+            --version "$VERSION" \
+            --tags latest \
+            --changelog "v$VERSION — see github.com/${{ github.repository }}"
+
+      - name: Report results
+        run: |
+          echo "npm publish:     ${{ steps.npm_publish.outcome }}"
+          echo "clawhub publish: ${{ steps.clawhub_publish.outcome }}"
+          if [ "${{ steps.clawhub_publish.outcome }}" != "success" ]; then
+            echo "::warning::ClawHub publish failed — check the CLAWHUB_TOKEN secret"
+          fi
+          # npm is authoritative: fail the run if it did not publish, so a broken
+          # token cannot go unnoticed for weeks the way it did on graph-aave-mcp.
+          if [ "${{ steps.npm_publish.outcome }}" != "success" ]; then
+            echo "::error::npm publish FAILED — set/refresh the NPM_TOKEN secret (granular token, read+write on graph-limitless-mcp)"
+            exit 1
+          fi
