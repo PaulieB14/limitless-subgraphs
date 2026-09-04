@@ -68,9 +68,23 @@ jobs:
       - name: Publish to npm
         id: npm_publish
         continue-on-error: true
-        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          NAME=$(node -p "require('./package.json').name")
+          # Idempotent: the version in package.json is the intent. If it is
+          # already on the registry there is nothing to do, and that is success
+          # — not a failure to be retried, and not a reason to auto-bump. A
+          # blind `npm version patch` on every push would inflate the version
+          # for README-only commits and drift from the tags.
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is already published — nothing to do."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+          npm publish --access public
 
       - name: Publish to ClawHub (skill / discovery listing)
         id: clawhub_publish
@@ -80,6 +94,8 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "Publishing graph-limitless-mcp v$VERSION to ClawHub"
+          # Re-publishing an existing version is rejected; continue-on-error
+          # keeps that from failing the run, and npm remains the gate.
           npx --yes clawhub@latest login --no-input --token "$CLAWHUB_TOKEN"
           # Publish from a clean folder holding only SKILL.md: a package.json
           # with a bin field makes the CLI treat this as a code-plugin, which is
@@ -104,7 +120,10 @@ jobs:
           fi
           # npm is authoritative: fail the run if it did not publish, so a broken
           # token cannot go unnoticed for weeks the way it did on graph-aave-mcp.
-          if [ "${{ steps.npm_publish.outcome }}" != "success" ]; then
-            echo "::error::npm publish FAILED — set/refresh the NPM_TOKEN secret (granular token, read+write on graph-limitless-mcp)"
+          # "Already published" counts as success — see the publish step.
+          if [ "${{ steps.npm_publish.outputs.skipped }}" = "true" ]; then
+            echo "npm: version already on the registry, skipped."
+          elif [ "${{ steps.npm_publish.outcome }}" != "success" ]; then
+            echo "::error::npm publish FAILED. Check the NPM_TOKEN secret is set and is a granular token with read+write on graph-limitless-mcp. (ENEEDAUTH here means the secret is missing or empty.)"
             exit 1
           fi
